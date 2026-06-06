@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rage of Kratos - Mythic Realms V2</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0c0505;
+            font-family: 'Cinzel', 'Georgia', serif;
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bar-container {
+            width: 320px;
+            height: 26px;
+            background: rgba(5, 5, 5, 0.9);
+            border: 2px solid #666;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.1s ease-out;
+        }
+
+        #hp-fill {
+            background: linear-gradient(90deg, #7a0000, #ff1111);
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.4);
+        }
+
+        #rage-fill {
+            width: 0%;
+            background: linear-gradient(90deg, #d35400, #f39c12);
+        }
+
+        .bar-label {
+            position: absolute;
+            top: 50%;
+            left: 12px;
+            transform: translateY(-50%);
+            color: #fff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            text-shadow: 1px 1px 4px #000;
+        }
+
+        #boss-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            pointer-events: none;
+        }
+
+        .boss-bar-container {
+            width: 500px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid #ff0000;
+            box-shadow: 0 0 30px rgba(255,0,0,0.4);
+            position: relative;
+            border-radius: 4px;
+        }
+
+        #boss-hp-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #4a0000, #cc0000, #ff3333);
+        }
+
+        #boss-text {
+            color: #ff3333;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 4px;
+            text-shadow: 2px 2px 4px #000;
+            text-transform: uppercase;
+        }
+
+        #boss-warning {
+            color: #ff0055;
+            font-weight: bold;
+            font-size: 20px;
+            animation: blink 0.5s infinite alternate;
+            display: none;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.3; } to { opacity: 1; }
+        }
+
+        #vignette {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            box-shadow: inset 0 0 140px rgba(0,0,0,0.95);
+            pointer-events: none;
+        }
+
+        #stats-panel {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #ffcccc;
+            text-align: right;
+            pointer-events: none;
+        }
+
+        .stat-line {
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,0,0,0.6);
+            margin-bottom: 4px;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ddd;
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-align: center;
+            text-shadow: 1px 1px 5px #000;
+            background: rgba(15, 5, 5, 0.85);
+            padding: 10px 30px;
+            border-radius: 6px;
+            border: 2px solid #552222;
+        }
+
+        #game-over-screen, #victory-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 2, 2, 0.98);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s ease;
+            z-index: 999;
+        }
+
+        #game-over-screen.visible, #victory-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        h1 {
+            color: #aa0000;
+            font-size: 80px;
+            letter-spacing: 15px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            text-shadow: 0 0 30px rgba(255,0,0,0.5);
+        }
+
+        #restart-btn {
+            background: #1a0505;
+            color: #ff3333;
+            border: 2px solid #aa0000;
+            padding: 16px 45px;
+            font-size: 20px;
+            letter-spacing: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(255,0,0,0.3);
+            margin-top: 20px;
+        }
+        
+        #restart-btn:hover {
+            background: #aa0000;
+            color: #fff;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div id="vignette"></div>
+
+    <div id="hud">
+        <div class="bar-container">
+            <div id="hp-fill" class="bar-fill"></div>
+            <div class="bar-label" id="hp-label">Vitality: 250 / 250</div>
+        </div>
+        <div id="rage-container" class="bar-container">
+            <div id="rage-fill" class="bar-fill"></div>
+            <div class="bar-label">Rage Meter (SPACE)</div>
+        </div>
+    </div>
+
+    <div id="boss-hud">
+        <div id="boss-warning">⚠️ BOSS IS PREPARING ONE-HIT KILL ATTACK! EVADE! ⚠️</div>
+        <div id="boss-text">CHIEF DEMON - HP: <span id="boss-hp-num">500</span> / 500</div>
+        <div class="boss-bar-container">
+            <div id="boss-hp-fill"></div>
+        </div>
+    </div>
+
+    <div id="stats-panel">
+        <div class="stat-line">LEVEL: <span id="level-display">1</span> / 5</div>
+        <div class="stat-line">KILLS: <span id="kill-count">0</span></div>
+        <div class="stat-line" style="font-size:16px; color:#aaa;">REALM: <span id="realm-display">ANCIENT TEMPLE</span></div>
+    </div>
+
+    <div id="controls-hint">MOVE: ARROW KEYS &nbsp;|&nbsp; SLASH: ENTER &nbsp;|&nbsp; BREAK OBJECTS FOR POTIONS</div>
+
+    <div id="game-over-screen">
+        <h1 id="death-cause">YOU PERISHED</h1>
+        <p style="color:#aaa; letter-spacing: 2px; font-size:18px;">The Underworld claims another warrior.</p>
+        <button id="restart-btn" onclick="resetGame()">Rise From Ashes</button>
+    </div>
+
+    <div id="victory-screen">
+        <h1 style="color:#d4af37; text-shadow: 0 0 30px rgba(212,175,55,0.5);">GOD OF WAR</h1>
+        <p style="color:#aaa; letter-spacing: 2px; font-size:18px;">All mythical realms have been conquered!</p>
+        <button id="restart-btn" style="border-color:#d4af37; color:#d4af37;" onclick="resetGame()">Play Again</button>
+    </div>
+
+    <script>
+        const PLAYER_MAX_HP = 250;
+        const BASE_PLAYER_SPEED = 0.25;
+        const ENEMY_SPEED = 0.08;
+        
+        let damagePerLevel = [60, 100, 150, 220, 350]; 
+
+        let scene, camera, renderer;
+        let player, floor, templeEnvironment, mountainEnvironment;
+        let keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        
+        let enemies = [];
+        let particles = [];
+        let props = []; // Pots and Barrels
+        let items = []; // Potions dropped
+        let attackTrails = [];
+        let activeBoss = null;
+
+        let playerHp = PLAYER_MAX_HP;
+        let playerRage = 0;
+        let isRageActive = false;
+        let killCount = 0;
+        let gameLevel = 1;
+        let currentRealm = "TEMPLE"; 
+        let isGameOver = false;
+        let lastAttackTime = 0;
+        let spawnInterval = 1800;
+        let lastSpawnTime = 0;
+        let isAttacking = false;
+        let attackProgress = 0;
+
+        // Boss Custom Logic AI
+        let bossLastHitTime = 0;
+        let bossAttackTimer = 0;
+        let bossCurrentAttackState = "NONE"; 
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x110808, 0.025);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.3;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff5ea, 1.5);
+            sunLight.position.set(40, 80, 30);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            createGrounds();
+            createAncientTempleEnvironment();
+            createMountainEnvironment();
+            mountainEnvironment.visible = false;
+
+            createBuffedKratos();
+            spawnProps(); // Spawn barrels and pots
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+
+            updateHUD();
+            animate(0);
+        }
+
+        function createGrounds() {
+            const floorGeo = new THREE.PlaneGeometry(200, 200);
+            const templeMat = new THREE.MeshStandardMaterial({ color: 0x221c18, roughness: 0.7 });
+            floor = new THREE.Mesh(floorGeo, templeMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createAncientTempleEnvironment() {
+            templeEnvironment = new THREE.Group();
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x3a332e, roughness: 0.8 });
+            const colPositions = [[-20, -20], [20, -20], [-20, 20], [20, 20], [-40, 0], [40, 0]];
+
+            colPositions.forEach(pos => {
+                let pillar = new THREE.Group();
+                pillar.position.set(pos[0], 0, pos[1]);
+                let shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.9, 24, 16), stoneMat);
+                shaft.position.y = 12;
+                pillar.add(shaft);
+                templeEnvironment.add(pillar);
+            });
+            scene.add(templeEnvironment);
+        }
+
+        function createMountainEnvironment() {
+            mountainEnvironment = new THREE.Group();
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x25282a, roughness: 0.9, flatShading: true });
+            for (let i = 0; i < 20; i++) {
+                let scaleY = 20 + Math.random() * 25;
+                let rock = new THREE.Mesh(new THREE.ConeGeometry(12, scaleY, 5), rockMat);
+                let angle = (i / 20) * Math.PI * 2;
+                rock.position.set(Math.sin(angle) * 70, scaleY/2 - 2, Math.cos(angle) * 70);
+                mountainEnvironment.add(rock);
+            }
+            scene.add(mountainEnvironment);
+        }
+
+        function createBuffedKratos() {
+            player = new THREE.Group();
+
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, roughness: 0.5 });
+            const armorMat = new THREE.MeshStandardMaterial({ color: 0xb30000, roughness: 0.6 });
+            const bladeMetalMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.8 });
+            const glowRed = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.6, 2.2, 16), skinMat);
+            torso.position.y = 2.4;
+            player.add(torso);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), skinMat);
+            head.position.set(0, 3.8, 0);
+            player.add(head);
+
+            // Highly Visible Bold Structured ARMS attached outwards
+            const armGeo = new THREE.CylinderGeometry(0.28, 0.22, 1.6, 12);
+            armGeo.center();
+            armGeo.translate(0, -0.6, 0); // Origin set to shoulder pivot
+
+            player.leftShoulder = new THREE.Group();
+            player.leftShoulder.position.set(-1.1, 3.2, 0);
+            player.add(player.leftShoulder);
+            let leftArmMesh = new THREE.Mesh(armGeo, skinMat);
+            player.leftShoulder.add(leftArmMesh);
+
+            player.rightShoulder = new THREE.Group();
+            player.rightShoulder.position.set(1.1, 3.2, 0);
+            player.add(player.rightShoulder);
+            let rightArmMesh = new THREE.Mesh(armGeo, skinMat);
+            player.rightShoulder.add(rightArmMesh);
+
+            // Legs
+            const legGeo = new THREE.CylinderGeometry(0.35, 0.25, 1.6, 12);
+            player.leftLeg = new THREE.Mesh(legGeo, skinMat); player.leftLeg.position.set(-0.4, 0.8, 0); player.add(player.leftLeg);
+            player.rightLeg = new THREE.Mesh(legGeo, skinMat); player.rightLeg.position.set(0.4, 0.8, 0); player.add(player.rightLeg);
+
+            // Kilt
+            const kilt = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 0.8, 16), armorMat);
+            kilt.position.y = 1.6;
+            player.add(kilt);
+
+            // SWORDS (Blades of Chaos) - Attached directly to hands pointing dynamically forward
+            const bladeShape = new THREE.BoxGeometry(0.4, 4.0, 0.1);
+            bladeShape.center();
+            bladeShape.translate(0, 1.8, 0); // Align grip baseline
+
+            // Left Sword
+            player.leftSword = new THREE.Group();
+            player.leftSword.position.set(0, -1.3, 0.2); 
+            player.leftSword.rotation.x = Math.PI / 2; // Fixed pointing forward matrix
+            let lBladeMesh = new THREE.Mesh(bladeShape, bladeMetalMat);
+            let lGlow = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.8, 0.12), glowRed);
+            lGlow.position.z = 0.02; lBladeMesh.add(lGlow);
+            player.leftSword.add(lBladeMesh);
+            leftArmMesh.add(player.leftSword);
+
+            // Right Sword
+            player.rightSword = new THREE.Group();
+            player.rightSword.position.set(0, -1.3, 0.2);
+            player.rightSword.rotation.x = Math.PI / 2; // Fixed pointing forward matrix
+            let rBladeMesh = new THREE.Mesh(bladeShape, bladeMetalMat);
+            let rGlow = lGlow.clone(); rBladeMesh.add(rGlow);
+            player.rightSword.add(rBladeMesh);
+            rightArmMesh.add(player.rightSword);
+
+            // Reset baseline angles
+            player.leftShoulder.rotation.set(0.3, 0, 0.1);
+            player.rightShoulder.rotation.set(0.3, 0, -0.1);
+
+            scene.add(player);
+        }
+
+        function spawnProps() {
+            // Spawn Breakable Pots and Barrels across map
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x7a431d, roughness: 0.9 });
+            const potMat = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.8 });
+
+            for (let i = 0; i < 15; i++) {
+                let isBarrel = Math.random() > 0.5;
+                let propGeo = isBarrel ? new THREE.CylinderGeometry(0.8, 0.8, 2, 12) : new THREE.CylinderGeometry(0.6, 0.9, 1.6, 12);
+                let mesh = new THREE.Mesh(propGeo, isBarrel ? barrelMat : potMat);
+                
+                mesh.position.set((Math.random() - 0.5) * 60, 1, (Math.random() - 0.5) * 60);
+                mesh.castShadow = true;
+                mesh.userData = { isProp: true, hp: 1, type: isBarrel ? 'BARREL' : 'POT' };
+                
+                scene.add(mesh);
+                props.push(mesh);
+            }
+        }
+
+        function spawnEnemy(isBoss = false) {
+            if (isGameOver) return;
+
+            let enemy = new THREE.Group();
+            // Scale parameters: Boss grows exponentially stronger every stage
+            let scaleMultiplier = isBoss ? (2.0 + gameLevel * 0.5) : 1.3;
+
+            const monsterMat = new THREE.MeshStandardMaterial({ 
+                color: isBoss ? 0x660000 : 0x334433, roughness: 0.5, flatShading: true 
+            });
+
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.5 * scaleMultiplier, 0.4 * scaleMultiplier, 1.5 * scaleMultiplier, 12), monsterMat);
+            torso.position.y = 1.0 * scaleMultiplier;
+            enemy.add(torso);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scaleMultiplier, 12, 12), monsterMat);
+            head.position.set(0, 1.9 * scaleMultiplier, 0);
+            enemy.add(head);
+
+            let angle = Math.random() * Math.PI * 2;
+            let radius = isBoss ? 22 : (25 + Math.random() * 10);
+            enemy.position.set(player.position.x + Math.sin(angle) * radius, 0, player.position.z + Math.cos(angle) * radius);
+
+            // Boss Scaling Stats Rules
+            let bossMaxHp = 500 + (gameLevel * 200); // Level 5 Final Boss will have massive HP
+
+            enemy.userData = {
+                isBoss: isBoss,
+                maxHp: isBoss ? bossMaxHp : 30,
+                hp: isBoss ? bossMaxHp : 30,
+                speed: isBoss ? (ENEMY_SPEED + (gameLevel * 0.02)) : ENEMY_SPEED,
+                damage: isBoss ? (40 + gameLevel * 20) : 15,
+                animOffset: Math.random() * 10
+            };
+
+            if (isBoss) {
+                activeBoss = enemy;
+                bossLastHitTime = performance.now();
+                document.getElementById('boss-hud').style.display = 'flex';
+                document.getElementById('boss-text').innerHTML = `STAGE ${gameLevel} OVERLORD - HP: <span id="boss-hp-num">${bossMaxHp}</span> / ${bossMaxHp}`;
+                updateBossHUD();
+            }
+
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+
+        function performAttack() {
+            let now = performance.now();
+            if (now - lastAttackTime < 250 || isGameOver) return; 
+            lastAttackTime = now;
+            isAttacking = true;
+            attackProgress = 0;
+
+            // Attack Sweep Crescent VFX
+            const trailGeo = new THREE.RingGeometry(2, 8, 16, 1, 0, Math.PI);
+            trailGeo.rotateX(-Math.PI / 2);
+            const trail = new THREE.Mesh(trailGeo, new THREE.MeshBasicMaterial({ color: 0xff3300, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+            trail.position.copy(player.position).setY(1.6);
+            trail.rotation.y = player.rotation.y + Math.PI / 2;
+            scene.add(trail);
+            attackTrails.push(trail);
+
+            let weaponDamage = damagePerLevel[gameLevel - 1];
+
+            // 1. Check hitting breakables (Pots/Barrels)
+            for (let i = props.length - 1; i >= 0; i--) {
+                if (player.position.distanceTo(props[i].position) < 6.5) {
+                    createExplosion(props[i].position, 0x8b5a2b, 15);
+                    // Drop Potion
+                    spawnPotion(props[i].position);
+                    scene.remove(props[i]);
+                    props.splice(i, 1);
+                }
+            }
+
+            // 2. Check hitting enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
+                if (player.position.distanceTo(enemy.position) < (enemy.userData.isBoss ? 11 : 7)) {
+                    enemy.userData.hp -= weaponDamage;
+                    createExplosion(enemy.position, 0xff0000, 12);
+                    
+                    if (enemy.userData.isBoss) {
+                        bossLastHitTime = now; // Reset heal timer on hit
+                        updateBossHUD();
+                    }
+
+                    if (enemy.userData.hp <= 0) {
+                        removeEnemy(enemy, i);
+                    }
+                }
+            }
+        }
+
+        function spawnPotion(pos) {
+            let pot = new THREE.Group();
+            let bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.0, 8), new THREE.MeshStandardMaterial({ color: 0x00ff33, roughness: 0.2, transparent: true, opacity: 0.8 }));
+            pot.add(bottle);
+            let liquidGlow = new THREE.PointLight(0x00ff33, 2, 5);
+            pot.add(liquidGlow);
+            pot.position.copy(pos).setY(0.5);
+            scene.add(pot);
+            items.push(pot);
+        }
+
+        function removeEnemy(enemy, index) {
+            createExplosion(enemy.position, 0x550000, enemy.userData.isBoss ? 80 : 20);
+            if (enemy.userData.isBoss) {
+                activeBoss = null;
+                document.getElementById('boss-hud').style.display = 'none';
+                progressLevel();
+            } else {
+                killCount++;
+                document.getElementById('kill-count').innerText = killCount;
+                if (killCount % 20 === 0 && killCount > 0 && !activeBoss) {
+                    spawnEnemy(true);
+                }
+            }
+            scene.remove(enemy);
+            enemies.splice(index, 1);
+        }
+
+        function progressLevel() {
+            if (gameLevel < 5) {
+                gameLevel++;
+                playerHp = PLAYER_MAX_HP;
+                updateHUD();
+                
+                if (gameLevel >= 2) {
+                    currentRealm = "MOUNTAIN";
+                    templeEnvironment.visible = false;
+                    mountainEnvironment.visible = true;
+                    floor.material.color.setHex(0x1b1e1f);
+                    scene.fog.color.setHex(0x0a0c0d);
+                }
+                // Restock breakables
+                spawnProps();
+
+                document.getElementById('level-display').innerText = gameLevel;
+                document.getElementById('realm-display').innerText = currentRealm === "TEMPLE" ? "ANCIENT TEMPLE" : "CRAGGY MOUNTAINS";
+            } else {
+                document.getElementById('victory-screen').classList.add('visible');
+                isGameOver = true;
+            }
+        }
+
+        function runBossAI(enemy, delta, time) {
+            let dist = enemy.position.distanceTo(player.position);
+            let now = performance.now();
+
+            // 1. PASSIVE REGEN MECHANIC (Heals if left untouched for 3.5 seconds)
+            if (now - bossLastHitTime > 3500) {
+                enemy.userData.hp = Math.min(enemy.userData.maxHp, enemy.userData.hp + (delta * 45));
+                updateBossHUD();
+            }
+
+            // 2. BOSS MOVEMENT & ATTACKS ABILITY MACHINE
+            bossAttackTimer += delta;
+            
+            if (bossAttackTimer > 4.0) { // Every 4 seconds trigger advanced special skill
+                bossAttackTimer = 0;
+                let rng = Math.random();
+                
+                if (rng < 0.25 && gameLevel >= 3) { 
+                    // SKILL 1: DOOM CHARGE (ONE HIT KILL MECHANIC)
+                    bossCurrentAttackState = "DOOM_CHARGE";
+                    document.getElementById('boss-warning').style.display = 'block';
+                    enemy.children.forEach(c => { if(c.material) c.material.color.setHex(0xff00ff); }); // Turns dangerous Purple
+                } else if (rng < 0.6) {
+                    // SKILL 2: GROUND SLAM
+                    bossCurrentAttackState = "SLAM";
+                    createExplosion(enemy.position, 0xff5500, 40);
+                    if (dist < 14) {
+                        playerHp -= 60;
+                        updateHUD();
+                    }
+                } else {
+                    bossCurrentAttackState = "FRENZY";
+                    enemy.userData.speed *= 2.2; // Speed buff charge
+                }
+            }
+
+            // Attack execution updates
+            if (bossCurrentAttackState === "DOOM_CHARGE") {
+                // Charges tracking vectors straight to player position
+                let chargeDir = player.position.clone().sub(enemy.position).normalize();
+                enemy.position.add(chargeDir.multiplyScalar(enemy.userData.speed * 2.5));
+                
+                if (dist < 4.0) { // Caught inside core box hitbox
+                    playerHp = 0; // INSTANT DEADLY ONE-HIT KILL CAUSE
+                    updateHUD();
+                    triggerGameOver("KILLED BY BOSS'S DOOM CHARGE!");
+                }
+                
+                if (Math.random() > 0.92) { // End charge
+                    bossCurrentAttackState = "NONE";
+                    document.getElementById('boss-warning').style.display = 'none';
+                    enemy.children.forEach(c => { if(c.material) c.material.color.setHex(0x660000); });
+                }
+            } else {
+                // Default stalking pathing AI
+                if (dist > 3.0) {
+                    let dir = player.position.clone().sub(enemy.position).normalize();
+                    enemy.position.add(dir.multiplyScalar(enemy.userData.speed));
+                } else {
+                    playerHp -= enemy.userData.damage * delta;
+                    updateHUD();
+                }
+                
+                if (bossCurrentAttackState === "FRENZY" && Math.random() > 0.95) {
+                    bossCurrentAttackState = "NONE";
+                    enemy.userData.speed = ENEMY_SPEED + (gameLevel * 0.02);
+                }
+            }
+
+            if (playerHp <= 0) triggerGameOver("YOU PERISHED IN COMBAT");
+        }
+
+        function triggerGameOver(message) {
+            isGameOver = true;
+            document.getElementById('death-cause').innerText = message;
+            document.getElementById('game-over-screen').classList.add('visible');
+        }
+
+        function createExplosion(pos, color, count) {
+            for (let i = 0; i < count; i++) {
+                let p = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), new THREE.MeshBasicMaterial({ color: color, transparent: true }));
+                p.position.copy(pos).setY(pos.y + 1);
+                p.userData = {
+                    velocity: new THREE.Vector3((Math.random() - 0.5) * 0.7, Math.random() * 0.6 + 0.2, (Math.random() - 0.5) * 0.7),
+                    gravity: 0.018, life: 1.0, decay: Math.random() * 0.04 + 0.02
+                };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('hp-fill').style.width = `${(playerHp / PLAYER_MAX_HP) * 100}%`;
+            document.getElementById('hp-label').innerText = `Vitality: ${Math.ceil(playerHp)} / ${PLAYER_MAX_HP}`;
+        }
+
+        function updateBossHUD() {
+            if (!activeBoss) return;
+            let pct = (activeBoss.userData.hp / activeBoss.userData.maxHp) * 100;
+            document.getElementById('boss-hp-fill').style.width = `${Math.max(0, pct)}%`;
+            document.getElementById('boss-hp-num').innerText = Math.max(0, Math.ceil(activeBoss.userData.hp));
+        }
+
+        function handleKeyDown(event) {
+            if (event.key in keys) keys[event.key] = true;
+            if (event.key === 'Enter') performAttack();
+        }
+
+        function handleKeyUp(event) {
+            if (event.key in keys) keys[event.key] = false;
+        }
+
+        function updateGame(delta, timeSeconds) {
+            if (isGameOver) return;
+
+            // Player translation movement setup
+            let mx = 0, mz = 0;
+            if (keys.ArrowUp) mz -= 1;
+            if (keys.ArrowDown) mz += 1;
+            if (keys.ArrowLeft) mx -= 1;
+            if (keys.ArrowRight) mx += 1;
+
+            if (mx !== 0 || mz !== 0) {
+                let moveVec = new THREE.Vector3(mx, 0, mz).normalize().multiplyScalar(BASE_PLAYER_SPEED);
+                player.position.add(moveVec);
+                player.rotation.y = Math.atan2(mx, mz);
+
+                player.leftLeg.rotation.x = Math.sin(timeSeconds * 15) * 0.5;
+                player.rightLeg.rotation.x = -Math.sin(timeSeconds * 15) * 0.5;
+            }
+
+            // Sword Swing Animation Control Arc Matrix
+            if (isAttacking) {
+                attackProgress += delta * 12;
+                if (attackProgress > Math.PI) {
+                    isAttacking = false;
+                    player.leftShoulder.rotation.set(0.3, 0, 0.1);
+                    player.rightShoulder.rotation.set(0.3, 0, -0.1);
+                } else {
+                    let swing = Math.sin(attackProgress) * 2.2;
+                    player.rightShoulder.rotation.set(1.4, swing, -0.2);
+                    player.leftShoulder.rotation.set(1.4, -swing, 0.2);
+                }
+            }
+
+            // Camera Tracking
+            camera.position.set(player.position.x, player.position.y + 15, player.position.z + 18);
+            camera.lookAt(player.position);
+
+            // Collect Potions collision checks
+            for (let i = items.length - 1; i >= 0; i--) {
+                items[i].rotation.y += 0.05; // Spin fx
+                if (player.position.distanceTo(items[i].position) < 2.5) {
+                    playerHp = Math.min(PLAYER_MAX_HP, playerHp + 75); // Restores +75 HP on collect
+                    updateHUD();
+                    createExplosion(items[i].position, 0x00ff33, 15);
+                    scene.remove(items[i]);
+                    items.splice(i, 1);
+                }
+            }
+
+            // Wave spawner system controls
+            if (!activeBoss && (timeSeconds * 1000 - lastSpawnTime > spawnInterval)) {
+                spawnEnemy(false);
+                lastSpawnTime = timeSeconds * 1000;
+            }
+
+            // Loop enemies AI logic processing
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
+                enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
+
+                if (enemy.userData.isBoss) {
+                    runBossAI(enemy, delta, timeSeconds);
+                } else {
+                    // Regular generic minor mob code
+                    let dist = enemy.position.distanceTo(player.position);
+                    if (dist > 1.8) {
+                        let dir = player.position.clone().sub(enemy.position).normalize();
+                        enemy.position.add(dir.multiplyScalar(enemy.userData.speed));
+                    } else {
+                        playerHp -= enemy.userData.damage * delta;
+                        updateHUD();
+                        if (playerHp <= 0) triggerGameOver("YOU PERISHED IN COMBAT");
+                    }
+                }
+            }
+
+            // Cleanup array entities elements
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i]; p.position.add(p.userData.velocity); p.userData.velocity.y -= p.userData.gravity;
+                p.userData.life -= p.userData.decay; p.material.opacity = p.userData.life;
+                if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
+            }
+            for (let i = attackTrails.length - 1; i >= 0; i--) {
+                attackTrails[i].material.opacity -= 0.1;
+                if (attackTrails[i].material.opacity <= 0) { scene.remove(attackTrails[i]); attackTrails.splice(i, 1); }
+            }
+        }
+
+        function resetGame() {
+            playerHp = PLAYER_MAX_HP; killCount = 0; gameLevel = 1; currentRealm = "TEMPLE"; isGameOver = false;
+            templeEnvironment.visible = true; mountainEnvironment.visible = false; activeBoss = null;
+            floor.material.color.setHex(0x221c18); scene.fog.color.setHex(0x110808);
+            document.getElementById('boss-warning').style.display = 'none';
+            document.getElementById('level-display').innerText = '1';
+            document.getElementById('kill-count').innerText = '0';
+            document.getElementById('realm-display').innerText = "ANCIENT TEMPLE";
+            document.getElementById('boss-hud').style.display = 'none';
+            document.getElementById('game-over-screen').classList.remove('visible');
+            document.getElementById('victory-screen').classList.remove('visible');
+            
+            enemies.forEach(e => scene.remove(e)); enemies = [];
+            props.forEach(p => scene.remove(p)); props = [];
+            items.forEach(p => scene.remove(p)); items = [];
+            particles = []; attackTrails = [];
+            player.position.set(0, 0, 0); updateHUD(); spawnProps();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let totalTimeElapsed = 0;
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            let delta = (currentTime - totalTimeElapsed) / 1000;
+            if(delta > 0.1) delta = 0.1; totalTimeElapsed = currentTime;
+            updateGame(delta, currentTime / 1000);
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => { init(); };
+    </script>
+</body>
+</html>
